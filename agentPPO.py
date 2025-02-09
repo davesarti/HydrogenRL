@@ -3,8 +3,9 @@ import numpy as np
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
-from stable_baselines3.common.noise import NormalActionNoise
+from stable_baselines3.common.callbacks import EvalCallback
 import matplotlib.pyplot as plt
+import torch
 from rich.progress import Progress, BarColumn, TextColumn
 from rich.console import Console
 
@@ -23,25 +24,34 @@ class RichProgressBar:
         self.task = None
 
 env = NetworkEnv()
+val_env = NetworkEnv()
+
+eval_callback = EvalCallback(
+    env,
+    best_model_save_path='./PPO/',
+    eval_freq=50000,    # esegue valutazioni ogni 5000 step
+    deterministic=True,
+    render=False
+)
 
 check_env(env, warn=True)
 
-model = PPO("MlpPolicy", env, verbose=1)
+model = PPO("MlpPolicy", env, verbose=1, device="cpu")
 
-model.learn(total_timesteps=1000000, log_interval = 10, progress_bar = RichProgressBar())
+model.learn(total_timesteps=500000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
-window_size = 100
-smoothed_rewards = np.convolve(rewards, np.ones(window_size)/window_size, mode='valid')
-smoothed_outputs = np.convolve(outputs, np.ones(window_size)/window_size, mode='valid')
-smoothed_inputs = np.convolve(inputs, np.ones(window_size)/window_size, mode='valid')
+window = 50
+smoothed_rewards = np.convolve(rewards, np.ones(window)/window, mode='valid')
 
-plt.figure(figsize=(14, 10))
-           
-plt.subplot(3, 1, 1)
-plt.plot(smoothed_rewards)
-plt.title("Rewards")
+plt.figure(figsize=(12, 6))
+plt.plot(rewards, label='Reward per step', alpha=0.3)
+plt.plot(smoothed_rewards, label='Trend reward (media mobile)', color='red')
+plt.xlabel('Numero di step')
+plt.ylabel('Reward')
+plt.title('Tendenza generale della Reward')
+plt.legend()
 
 plt.figure(figsize=(14, 10))
 

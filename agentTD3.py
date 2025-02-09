@@ -5,9 +5,10 @@ from stable_baselines3 import TD3
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.noise import NormalActionNoise
 import matplotlib.pyplot as plt
+from stable_baselines3.common.callbacks import BaseCallback
 from rich.progress import Progress, BarColumn, TextColumn
 from rich.console import Console
-
+import torch
 
 class RichProgressBar:
     def __init__(self):
@@ -22,16 +23,38 @@ class RichProgressBar:
         )
         self.task = None
 
+class ActionNoiseCallback(BaseCallback):
+    def __init__(self, initial_sigma, final_sigma, total_timesteps, verbose=0):
+        super(ActionNoiseCallback, self).__init__(verbose)
+        self.initial_sigma = initial_sigma
+        self.final_sigma = final_sigma
+        self.total_timesteps = total_timesteps
+
+    def _on_step(self) -> bool:
+        progress = self.num_timesteps / self.total_timesteps # num_timesteps viene incrementato automaticamente da stable-baselines
+        new_sigma = self.initial_sigma + progress * (self.final_sigma - self.initial_sigma)
+        self.model.action_noise.sigma = new_sigma
+        return True
+
 env = NetworkEnv()
 
 check_env(env, warn=True)
 
 n_actions = env.action_space.shape[-1]
-action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.2 * np.ones(n_actions))
+initial_sigma = 1.0
+final_sigma = 0.05
+total_timesteps=100000
+action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=initial_sigma * np.ones(n_actions))
 
-model = TD3("MlpPolicy", env, action_noise=action_noise, verbose=1)
+model = TD3(
+    "MlpPolicy", 
+    env, 
+    action_noise=action_noise,
+)
 
-model.learn(total_timesteps=100000, log_interval = 10, progress_bar = RichProgressBar())
+action_noise_callback = ActionNoiseCallback(initial_sigma, final_sigma, total_timesteps)
+
+model.learn(total_timesteps, log_interval = 10, progress_bar = RichProgressBar(), callback=action_noise_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
