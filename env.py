@@ -14,8 +14,8 @@ def reward_logistic(error, k=10):
 def reward_exponential_penalty(error):
     return 100 * (1 - np.exp(error))
 
-def reward_bounded_exp(error, k=1):
-    return float(200 * np.exp(-k * error) - 100)
+def reward_bounded_exp_PPO(error, k=2):
+    return float(20 * np.exp(-k * error) - 10)
 
 class Source:
 
@@ -171,7 +171,7 @@ class NetworkEnv(gym.Env):
         
         state = self._get_state()
         error = abs(state[1] - 100) / 100
-        reward = reward_bounded_exp(error)
+        reward = reward_bounded_exp_PPO(error)
         self.collect(reward, action)
         truncated = self.time > 1000
         return state, reward, False, truncated, {}
