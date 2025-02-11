@@ -1,21 +1,22 @@
 import numpy as np
 import gymnasium as gym
 
+CONVERSION_RATE = 0.8
+TANK_VOLUME = 3000
+SOURCE_MAX_POWER = 400
+TARGET_POWER = 80
+
+
 def validate_percentage(value: float) -> None:
     if value < 0 or value > 1:
         print('Le percentuali sono tra 0 e 1')
 
-def reward_quadratic(error, k=10):
-    return float(100 / (1 + k * error**2))
+def reward_bounded_exp(error, k=3):
+    return float(50 * np.exp(-k * error) - 25)
 
-def reward_logistic(error, k=10):
-    return 100 / (1 + np.exp(k * (error - 0.5)))
-
-def reward_exponential_penalty(error):
-    return 100 * (1 - np.exp(error))
-
-def reward_bounded_exp_PPO(error, k=2):
-    return float(20 * np.exp(-k * error) - 10)
+def reward_bounded_linear(error, min_reward=-50):
+    r = 50 * (1 - error) - 25
+    return np.clip(r, min_reward, None)
 
 class Source:
 
@@ -91,15 +92,12 @@ class Combustor:
 class PowerOutput:
 
     def __init__(self):
-        self.reset_output()
-
-    def reset_output(self):
-        self.current_output = 0
+        self.set_output(0)
 
     def set_output(self, value):
         self.current_output = value
 
-    def get_current_output(self):
+    def get_output(self):
         return self.current_output
 
 class NetworkEnv(gym.Env):
@@ -108,10 +106,10 @@ class NetworkEnv(gym.Env):
         super(NetworkEnv, self).__init__()
 
         self.time = 0
-        self.tank = Tank(1000)
-        self.electrolyzer = Electrolyzer(0.7)
-        self.combustor = Combustor(0.7)
-        self.source = Source(300)
+        self.tank = Tank(TANK_VOLUME)
+        self.electrolyzer = Electrolyzer(CONVERSION_RATE)
+        self.combustor = Combustor(CONVERSION_RATE)
+        self.source = Source(SOURCE_MAX_POWER)
         self.output = PowerOutput()
 
         self.output_data = []
@@ -121,11 +119,11 @@ class NetworkEnv(gym.Env):
         self.action_data = []
         self.input_data = []
 
-        # potenza in input, in output, volume tanica
-        obs_low = np.array([0, 0, 0])
-        obs_high = np.array([500, 500, 500])
+        # potenza in input, volume tanica
+        obs_low = np.array([0, 0])
+        obs_high = np.array([SOURCE_MAX_POWER, TANK_VOLUME])
 
-        self.observation_space = gym.spaces.Box(low=obs_low, high=obs_high, shape = (3,), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=obs_low, high=obs_high, shape = (2,), dtype=np.float32)
 
         # percentuale corrente da convertire, percentuale idrogeno da convertire
         act_low = np.array([-1, -1])
@@ -134,7 +132,7 @@ class NetworkEnv(gym.Env):
 
     def _get_state(self):
         state = np.array(
-            [self.source.get_source_power(), self.output.get_current_output(), self.tank.get_volume()], dtype=np.float32
+            [self.source.get_source_power(), self.tank.get_volume()], dtype=np.float32
         )
         return state
     
@@ -142,7 +140,7 @@ class NetworkEnv(gym.Env):
         return self.reward_data, self.output_data, self.volume_data, self.action_data, self.input_data
 
     def collect(self, reward, action):
-        self.output_data.append(self.output.get_current_output())
+        self.output_data.append(self.output.get_output())
         self.volume_data.append(self.tank.get_volume())
         self.reward_data.append(reward)
         self.action_data.append(action)
@@ -152,9 +150,8 @@ class NetworkEnv(gym.Env):
         super().reset(seed=seed)
         self.source.set_source_power(0)
         self.tank.reset_volume()
-        self.output.set_output(self.source.get_source_power())
+        self.output.set_output(0)
         self.output_data = []
-        self.volume_data = []
         self.action_data = []
         self.input_data = []
         self.time = 0
@@ -169,18 +166,18 @@ class NetworkEnv(gym.Env):
         power = power + self.combustor.produce_power(action[1]*self.tank.get_volume(), self.tank)
         self.output.set_output(power)
         
-        state = self._get_state()
-        error = abs(state[1] - 100) / 100
-        reward = reward_bounded_exp_PPO(error)
+        next_state = self._get_state()
+        error = abs(self.output.get_output() - TARGET_POWER) / TARGET_POWER
+        reward = reward_bounded_linear(error)
         self.collect(reward, action)
-        truncated = self.time > 1000
-        return state, reward, False, truncated, {}
+        truncated = self.time > 2000
+        return next_state, reward, False, truncated, {}
 
     def render(self):
         print("Time: ", self.time)
         print("Input: ", self.source.get_source_power())
         print("Volume: ", self.tank.get_volume())
-        print("Output: ", self.output.get_current_output())
+        print("Output: ", self.output.get_output())
         print("\n")
 
 

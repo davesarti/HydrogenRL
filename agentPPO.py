@@ -4,6 +4,7 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.monitor import Monitor
 import matplotlib.pyplot as plt
 import torch
 from rich.progress import Progress, BarColumn, TextColumn
@@ -24,12 +25,12 @@ class RichProgressBar:
         self.task = None
 
 env = NetworkEnv()
-val_env = NetworkEnv()
+val_env = Monitor(NetworkEnv())
 
 eval_callback = EvalCallback(
-    env,
+    val_env,
     best_model_save_path='./PPO/',
-    eval_freq=50000,    # esegue valutazioni ogni 5000 step
+    eval_freq=50000,
     deterministic=True,
     render=False
 )
@@ -38,7 +39,7 @@ check_env(env, warn=True)
 
 model = PPO("MlpPolicy", env, verbose=1, device="cpu")
 
-model.learn(total_timesteps=1000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
+model.learn(total_timesteps=500000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
@@ -57,12 +58,16 @@ plt.figure(figsize=(14, 10))
 
 plt.subplot(3, 1, 1)
 plt.plot(volumes)
+plt.xlabel('Numero di step')
+plt.ylabel('Volume')
 plt.title("Volumes")
 
 plt.figure(figsize=(14, 10))
 
 plt.subplot(3, 1, 1)
 plt.plot(actions)
+plt.xlabel('Numero di step')
+plt.ylabel('Azione')
 plt.title("Actions")
 plt.legend(["Pow to H2", "H2 to Pow"])
 
@@ -71,6 +76,8 @@ plt.figure(figsize=(14, 10))
 plt.subplot(3, 1, 1)
 plt.plot(inputs, label="Inputs")
 plt.plot(outputs, label="Outputs")
+plt.xlabel('Numero di step')
+plt.ylabel('Potenza')
 plt.title("Inputs and Outputs")
 plt.legend()
 

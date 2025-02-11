@@ -41,7 +41,7 @@ env = NetworkEnv()
 check_env(env, warn=True)
 
 n_actions = env.action_space.shape[-1]
-initial_sigma = 1.0
+initial_sigma = 0.5
 final_sigma = 0.05
 total_timesteps=100000
 action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=initial_sigma * np.ones(n_actions))
@@ -50,11 +50,23 @@ model = TD3(
     "MlpPolicy", 
     env, 
     action_noise=action_noise,
+    verbose=1,
+    device="cpu",
+    learning_rate=5e-4,
+    buffer_size=30000,
+    batch_size=128,
+    learning_starts=10000,
 )
+
+model.tau = 0.002
 
 action_noise_callback = ActionNoiseCallback(initial_sigma, final_sigma, total_timesteps)
 
-model.learn(total_timesteps, log_interval = 10, progress_bar = RichProgressBar(), callback=action_noise_callback)
+model.learn(total_timesteps,
+        log_interval = 10,
+        progress_bar = RichProgressBar(),
+        callback=action_noise_callback
+        )
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
@@ -62,14 +74,14 @@ model.save("hydrogen_TD3")
 
 window_size = 100
 smoothed_rewards = np.convolve(rewards, np.ones(window_size)/window_size, mode='valid')
-smoothed_outputs = np.convolve(outputs, np.ones(window_size)/window_size, mode='valid')
-smoothed_rewards = np.convolve(rewards, np.ones(window_size)/window_size, mode='valid')
-
-plt.figure(figsize=(14, 10))
            
-plt.subplot(3, 1, 1)
-plt.plot(smoothed_rewards)
-plt.title("Rewards")
+plt.figure(figsize=(12, 6))
+plt.plot(rewards, label='Reward per step', alpha=0.3)
+plt.plot(smoothed_rewards, label='Trend reward (media mobile)', color='red')
+plt.xlabel('Numero di step')
+plt.ylabel('Reward')
+plt.title('Tendenza generale della Reward')
+plt.legend()
 
 plt.figure(figsize=(14, 10))
 
