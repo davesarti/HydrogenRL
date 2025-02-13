@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from stable_baselines3.common.noise import NormalActionNoise
 
 env = NetworkEnv()
-model = PPO.load("./PPO/best_model_fix", env)
+model = PPO.load("./PPO/best_model", env)
 check_env(env, warn=True)
 
 obs, _ = env.reset()  # Estrai solo l'osservazione dalla tupla
@@ -16,7 +16,7 @@ output_val_data = []
 while not truncated:
     action, _states = model.predict(obs, deterministic=True)
     next_state, reward, done, truncated, _ = env.step(action)
-    output_val_data.append(env.output.get_output())
+    output_val_data.append(env.output.get_current_output())
     obs = next_state
 
 plt.figure(figsize=(14, 10))

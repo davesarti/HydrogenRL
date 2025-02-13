@@ -37,7 +37,7 @@ eval_callback = EvalCallback(
 
 check_env(env, warn=True)
 
-model = PPO("MlpPolicy", env, verbose=1, device="cpu")
+model = PPO("MlpPolicy", env, gamma = 0.99, device="cpu")
 
 model.learn(total_timesteps=500000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
@@ -53,14 +53,15 @@ plt.xlabel('Numero di step')
 plt.ylabel('Reward')
 plt.title('Tendenza generale della Reward')
 plt.legend()
+plt.savefig("plots/reward.png", dpi=300, bbox_inches='tight')
 
-plt.figure(figsize=(14, 10))
-
+plt.figure(figsize=(12, 6))
 plt.subplot(3, 1, 1)
 plt.plot(volumes)
 plt.xlabel('Numero di step')
 plt.ylabel('Volume')
 plt.title("Volumes")
+plt.savefig("plots/volume.png", dpi=300, bbox_inches='tight')
 
 plt.figure(figsize=(14, 10))
 
@@ -70,6 +71,7 @@ plt.xlabel('Numero di step')
 plt.ylabel('Azione')
 plt.title("Actions")
 plt.legend(["Pow to H2", "H2 to Pow"])
+plt.savefig("plots/actions.png", dpi=300, bbox_inches='tight')
 
 plt.figure(figsize=(14, 10))
 
@@ -80,6 +82,7 @@ plt.xlabel('Numero di step')
 plt.ylabel('Potenza')
 plt.title("Inputs and Outputs")
 plt.legend()
+plt.savefig("plots/inputs_outputs.png", dpi=300, bbox_inches='tight')
 
 plt.show()
 env.close()

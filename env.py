@@ -1,36 +1,47 @@
 import numpy as np
 import gymnasium as gym
+from sourcefn import available_energy_complex, available_energy_simple
 
 CONVERSION_RATE = 0.8
-TANK_VOLUME = 3000
+TANK_VOLUME = 10000
 SOURCE_MAX_POWER = 400
-TARGET_POWER = 80
+TARGET_POWER = 150
 
-
-def validate_percentage(value: float) -> None:
+def validate_percentage(value) -> None:
     if value < 0 or value > 1:
         print('Le percentuali sono tra 0 e 1')
 
-def reward_bounded_exp(error, k=3):
+def reward_bound_exp(error, k = 3):
     return float(50 * np.exp(-k * error) - 25)
 
-def reward_bounded_linear(error, min_reward=-50):
-    r = 50 * (1 - error) - 25
+def reward_bound_linear(error, min_reward = -20):
+    r = 10 * (1 - error) - 5
     return np.clip(r, min_reward, None)
+
+def reward_quadratic(error, scale = 5, min_reward = -50):
+    r = -scale * (error ** 2)
+    return np.clip(r, min_reward, None)
+
+def prevstate_reward(target, prevalue, value, scale = 3):
+        error = (relative_error(target, value)**3 + relative_error(target, prevalue)**2)
+        return -scale * error
+
+def relative_error(target, value):
+    return abs(target - value) / target
 
 class Source:
 
-    def __init__(self, maximum: float, time: int = 0):
+    def __init__(self, maximum: float, time: int = 0) -> None:
         self.maximum = maximum
         self.set_source_power(time)
 
-    def get_source_power(self):
+    def get_source_power(self) -> float:
         return self.current_power
-
-    def set_source_power(self, time: int):
-        self.current_power = ((np.sin(time)+1)/2)*self.maximum
-        return self.current_power
-
+    
+    # Setta la potenza della sorgente in base al tempo
+    def set_source_power(self, time: int) -> float:
+        self.current_power = available_energy_simple(time/5, self.maximum)
+        return self.current_power        
 
 class Tank:
 
@@ -67,11 +78,11 @@ class Tank:
 
 class Electrolyzer:
 
-    def __init__(self, conversion: float):
+    def __init__(self, conversion: float) -> None:
         validate_percentage(conversion)
         self.conversion = conversion #conversione potenza -> idrogeno
     
-    # Produce una data quantità di idrogeno data la corrente in entrata e una tanica, ritorna l'energia equivalente all'idrogeno prodotto
+    # Data la corrente in entrata e una tanica, ritorna l'energia equivalente all'idrogeno effettivamente prodotto
     def produce_hydrogen(self, power: float, tank: Tank) -> float:
         produced = power * self.conversion
         filled_amount = tank.fill(produced)
@@ -79,7 +90,7 @@ class Electrolyzer:
     
 class Combustor:
 
-    def __init__(self, conversion: float):
+    def __init__(self, conversion: float) -> None:
         validate_percentage(conversion)
         self.conversion = conversion #conversione idrogeno -> potenza
     
@@ -91,14 +102,20 @@ class Combustor:
 
 class PowerOutput:
 
-    def __init__(self):
-        self.set_output(0)
+    def __init__(self) -> None:
+        self.current_output = 0
+        self.previous_output = 0
 
-    def set_output(self, value):
+    def set_output(self, value: float, time: int = 0) -> None:
+        if(time == 0):
+            self.previous_output = self.current_output #sperimentale
         self.current_output = value
 
-    def get_output(self):
+    def get_current_output(self) -> float:
         return self.current_output
+    
+    def get_previous_output(self) -> float:
+        return self.previous_output
 
 class NetworkEnv(gym.Env):
     
@@ -139,8 +156,8 @@ class NetworkEnv(gym.Env):
     def get_data(self):
         return self.reward_data, self.output_data, self.volume_data, self.action_data, self.input_data
 
-    def collect(self, reward, action):
-        self.output_data.append(self.output.get_output())
+    def collect(self, reward, action) -> None:
+        self.output_data.append(self.output.get_current_output())
         self.volume_data.append(self.tank.get_volume())
         self.reward_data.append(reward)
         self.action_data.append(action)
@@ -160,16 +177,17 @@ class NetworkEnv(gym.Env):
     def step(self, action):
         action = (action + 1) / 2
 
-        self.time += 1
         power = self.source.set_source_power(self.time)
-        power = power - self.electrolyzer.produce_hydrogen(action[0]*power, self.tank)
+        power_converted = self.electrolyzer.produce_hydrogen(action[0]*power, self.tank)
+        power = power - power_converted
         power = power + self.combustor.produce_power(action[1]*self.tank.get_volume(), self.tank)
-        self.output.set_output(power)
+        self.output.set_output(power, self.time)
         
         next_state = self._get_state()
-        error = abs(self.output.get_output() - TARGET_POWER) / TARGET_POWER
-        reward = reward_bounded_linear(error)
+        error = relative_error(TARGET_POWER, self.output.get_current_output())
+        reward = reward_quadratic(error) - (TARGET_POWER - self.output.get_current_output())/2
         self.collect(reward, action)
+        self.time += 1
         truncated = self.time > 2000
         return next_state, reward, False, truncated, {}
 
@@ -177,7 +195,7 @@ class NetworkEnv(gym.Env):
         print("Time: ", self.time)
         print("Input: ", self.source.get_source_power())
         print("Volume: ", self.tank.get_volume())
-        print("Output: ", self.output.get_output())
+        print("Output: ", self.output.get_current_output())
         print("\n")
 
 
