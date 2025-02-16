@@ -19,12 +19,15 @@ while not truncated:
     output_val_data.append(env.output.get_current_output())
     obs = next_state
 
+target = np.ones(len(output_val_data)) * 150
 plt.figure(figsize=(14, 10))
 plt.subplot(3, 1, 1)
-plt.plot(output_val_data)
+plt.plot(output_val_data, label="Output")
+plt.plot(target, label="Target")
 plt.xlabel("Numero di step")
 plt.ylabel("Output")
 plt.title("Outputs")
+plt.legend()
 plt.show()
 
 env.close()

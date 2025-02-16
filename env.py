@@ -3,9 +3,11 @@ import gymnasium as gym
 from sourcefn import available_energy_complex, available_energy_simple
 
 CONVERSION_RATE = 0.8
-TANK_VOLUME = 10000
-SOURCE_MAX_POWER = 400
-TARGET_POWER = 150
+TANK_VOLUME = 12000
+SOURCE_MAX_POWER = 500
+TARGET_POWER = 160
+#Tarare correttamente questi parametri è cruciale perchè influenzano la convergenza dell'algoritmo
+#Pare che una buona approssimazione della dipendenza dei parametri sia TARGET_POWER < SOURCE_MAX_POWER * CONVERSION_RATE**2
 
 def validate_percentage(value) -> None:
     if value < 0 or value > 1:
@@ -22,9 +24,11 @@ def reward_quadratic(error, scale = 5, min_reward = -50):
     r = -scale * (error ** 2)
     return np.clip(r, min_reward, None)
 
-def prevstate_reward(target, prevalue, value, scale = 3):
-        error = (relative_error(target, value)**3 + relative_error(target, prevalue)**2)
-        return -scale * error
+def prevstate_reward(prevalue, value, scale = 3):
+    if prevalue == 0:
+        return 0
+    error = (relative_error(prevalue, value)**2)
+    return -scale * error
 
 def relative_error(target, value):
     return abs(target - value) / target
@@ -40,7 +44,7 @@ class Source:
     
     # Setta la potenza della sorgente in base al tempo
     def set_source_power(self, time: int) -> float:
-        self.current_power = available_energy_simple(time/5, self.maximum)
+        self.current_power = available_energy_complex(time, self.maximum/2)
         return self.current_power        
 
 class Tank:
@@ -107,8 +111,8 @@ class PowerOutput:
         self.previous_output = 0
 
     def set_output(self, value: float, time: int = 0) -> None:
-        if(time == 0):
-            self.previous_output = self.current_output #sperimentale
+        if(time%10 == 0):
+            self.previous_output = self.current_output
         self.current_output = value
 
     def get_current_output(self) -> float:
@@ -130,7 +134,6 @@ class NetworkEnv(gym.Env):
         self.output = PowerOutput()
 
         self.output_data = []
-        self.error_data = []
         self.volume_data = []
         self.reward_data = []
         self.action_data = []
@@ -138,7 +141,7 @@ class NetworkEnv(gym.Env):
 
         # potenza in input, volume tanica
         obs_low = np.array([0, 0])
-        obs_high = np.array([SOURCE_MAX_POWER, TANK_VOLUME])
+        obs_high = np.array([1, 1])
 
         self.observation_space = gym.spaces.Box(low=obs_low, high=obs_high, shape = (2,), dtype=np.float32)
 
@@ -149,7 +152,7 @@ class NetworkEnv(gym.Env):
 
     def _get_state(self):
         state = np.array(
-            [self.source.get_source_power(), self.tank.get_volume()], dtype=np.float32
+            [self.source.get_source_power()/SOURCE_MAX_POWER, self.tank.get_volume()/TANK_VOLUME], dtype=np.float32
         )
         return state
     
@@ -165,27 +168,31 @@ class NetworkEnv(gym.Env):
     
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        self.time = 0
         self.source.set_source_power(0)
         self.tank.reset_volume()
         self.output.set_output(0)
         self.output_data = []
         self.action_data = []
         self.input_data = []
-        self.time = 0
+        self.volume_data = []
         return self._get_state(), {}   
     
     def step(self, action):
         action = (action + 1) / 2
 
         power = self.source.set_source_power(self.time)
-        power_converted = self.electrolyzer.produce_hydrogen(action[0]*power, self.tank)
-        power = power - power_converted
-        power = power + self.combustor.produce_power(action[1]*self.tank.get_volume(), self.tank)
+        h2_to_power = self.combustor.produce_power(action[1]*self.tank.get_volume(), self.tank)
+        power_to_h2 = self.electrolyzer.produce_hydrogen(action[0]*power, self.tank)
+        power = power + h2_to_power - power_to_h2
         self.output.set_output(power, self.time)
         
         next_state = self._get_state()
         error = relative_error(TARGET_POWER, self.output.get_current_output())
-        reward = reward_quadratic(error) - (TARGET_POWER - self.output.get_current_output())/2
+        current_output = self.output.get_current_output()
+        #bonus serve per disincentivare l'output troppo basso 
+        bonus = -(TARGET_POWER - current_output)/5 if current_output < TARGET_POWER else 5
+        reward = reward_quadratic(error) + bonus #+ prevstate_reward(current_output, self.output.get_previous_output())
         self.collect(reward, action)
         self.time += 1
         truncated = self.time > 2000
@@ -197,9 +204,3 @@ class NetworkEnv(gym.Env):
         print("Volume: ", self.tank.get_volume())
         print("Output: ", self.output.get_current_output())
         print("\n")
-
-
-
-
-
-
