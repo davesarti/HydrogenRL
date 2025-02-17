@@ -13,17 +13,23 @@ check_env(env, warn=True)
 obs, _ = env.reset()  # Estrai solo l'osservazione dalla tupla
 truncated = False
 output_val_data = []
+input_val_data = []
 while not truncated:
+    input_val_data.append(env.source.get_source_power())
     action, _states = model.predict(obs, deterministic=True)
     next_state, reward, done, truncated, _ = env.step(action)
     output_val_data.append(env.output.get_current_output())
     obs = next_state
 
 target = np.ones(len(output_val_data)) * 150
+input_avg = np.ones(len(input_val_data))*np.mean(input_val_data)
+
 plt.figure(figsize=(14, 10))
 plt.subplot(3, 1, 1)
 plt.plot(output_val_data, label="Output")
 plt.plot(target, label="Target")
+plt.plot(input_val_data, label="Input")
+plt.plot(input_avg, label="Input avg", linestyle='--')
 plt.xlabel("Numero di step")
 plt.ylabel("Output")
 plt.title("Outputs")
