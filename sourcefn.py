@@ -12,7 +12,7 @@ def available_energy_complex(t, ampiezza): #settando l'ampiezza si setta anche i
     omega2 = 2 * np.pi / T2  # Frequenza angolare della modulazione
     phi2 = 0  # Fase iniziale della modulazione
 
-    noise_std = 10 # Deviazione standard del rumore
+    noise_std = 20 # Deviazione standard del rumore
     # Modulazione dell'ampiezza nel tempo
     ampiezza_modulata = 1 + ampiezza * np.sin(omega2 * t + phi2)
     
@@ -20,8 +20,7 @@ def available_energy_complex(t, ampiezza): #settando l'ampiezza si setta anche i
     componente_periodica = ampiezza_modulata * np.sin(omega1 * t + phi1) + ampiezza
     
     # Aggiunta del rumore gaussiano
-    rumore = 0 #np.random.normal(0, noise_std, 1).item()
-    
+    rumore = np.random.normal(0, noise_std, [1,]).item()
     # Disponibilità di energia totale
     disponibilita = componente_periodica + rumore
     

@@ -16,19 +16,19 @@ def validate_percentage(value) -> None:
 def reward_bound_exp(error, k = 3):
     return float(50 * np.exp(-k * error) - 25)
 
-def reward_bound_linear(error, min_reward = -20):
-    r = 10 * (1 - error) - 5
+def reward_bound_linear(error, min_reward = -30):
+    r = 20 * (1 - error) - 10
     return np.clip(r, min_reward, None)
 
-def reward_quadratic(error, scale = 5, min_reward = -50):
+def reward_quadratic(error, scale = 5, min_reward = -20):
     r = -scale * (error ** 2)
     return np.clip(r, min_reward, None)
 
-def prevstate_reward(prevalue, value, scale = 3):
+def prevstate_reward(prevalue, value):
     if prevalue == 0:
         return 0
-    error = (relative_error(prevalue, value)**2)
-    return -scale * error
+    error = -0.1*abs(value - prevalue)+10
+    return np.clip(error, 10, -10)
 
 def relative_error(target, value):
     return abs(target - value) / target
@@ -111,8 +111,9 @@ class PowerOutput:
         self.previous_output = 0
 
     def set_output(self, value: float, time: int = 0) -> None:
-        if(time%10 == 0):
+        if(time == 0):
             self.previous_output = self.current_output
+        self.previous_output = self.current_output
         self.current_output = value
 
     def get_current_output(self) -> float:
@@ -192,7 +193,10 @@ class NetworkEnv(gym.Env):
         current_output = self.output.get_current_output()
         #bonus serve per disincentivare l'output troppo basso 
         bonus = -(TARGET_POWER - current_output)/5 if current_output < TARGET_POWER else 5
-        reward = reward_quadratic(error) + bonus #+ prevstate_reward(current_output, self.output.get_previous_output())
+        prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
+        distance = reward_quadratic(error)
+        reward = distance + bonus
+        #print(distance, bonus, prevstate)
         self.collect(reward, action)
         self.time += 1
         truncated = self.time > 2000
