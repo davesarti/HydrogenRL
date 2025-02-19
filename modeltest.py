@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from stable_baselines3.common.noise import NormalActionNoise
 
 env = NetworkEnv()
-model = PPO.load("./PPO/best_model_complex2", env)
+model = PPO.load("./PPO/best_model", env)
 check_env(env, warn=True)
 
 obs, _ = env.reset()  # Estrai solo l'osservazione dalla tupla
@@ -24,7 +24,7 @@ while not truncated:
 target = np.ones(len(output_val_data)) * TARGET_POWER
 input_avg = np.ones(len(input_val_data))*np.mean(input_val_data)
 
-plt.figure(figsize=(14, 10))
+plt.figure(figsize=(14, 20))
 plt.subplot(3, 1, 1)
 plt.plot(input_val_data, label="Input")
 plt.plot(output_val_data, label="Output")
