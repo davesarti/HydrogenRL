@@ -1,4 +1,4 @@
-from env import NetworkEnv
+from env import NetworkEnv, TARGET_POWER
 import numpy as np
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -30,7 +30,7 @@ val_env = Monitor(NetworkEnv())
 eval_callback = EvalCallback(
     val_env,
     best_model_save_path='./PPO/',
-    eval_freq=50000,
+    eval_freq=50481, #hardcoded, da sistemare
     deterministic=True,
     render=False
 )
@@ -39,13 +39,13 @@ check_env(env, warn=True)
 
 model = PPO("MlpPolicy", env, gamma = 0.99, device="cpu")
 
-model.learn(total_timesteps=2000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
+model.learn(total_timesteps=1000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
 window = 50
 smoothed_rewards = np.convolve(rewards, np.ones(window)/window, mode='valid')
-target = np.ones(len(outputs)) * 150
+target = np.ones(len(outputs)) * TARGET_POWER
 
 plt.figure(figsize=(12, 6))
 plt.plot(rewards, label='Reward per step', alpha=0.3)
@@ -88,5 +88,3 @@ plt.savefig("plots/inputs_outputs.png", dpi=300, bbox_inches='tight')
 
 plt.show()
 env.close()
-
-#TODO: riprovare con PPO (ricordati clipping) con plot step-action da mandare a mario, cercare reward più stabile per DDPG

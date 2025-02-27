@@ -1,13 +1,13 @@
 import numpy as np
 import gymnasium as gym
-from sourcefn import available_energy_complex, available_energy_simple
+from sourcefn import available_energy_complex, available_energy_simple, available_energy_data, power_max
 
 CONVERSION_RATE = 0.8
-TANK_VOLUME = 12000
-SOURCE_MAX_POWER = 500
-TARGET_POWER = 160
+TANK_VOLUME = 50000
+SOURCE_MAX_POWER = power_max()
+TARGET_POWER = 700
 #Tarare correttamente questi parametri è cruciale perchè influenzano la convergenza dell'algoritmo
-#Pare che una buona approssimazione della dipendenza dei parametri sia TARGET_POWER < SOURCE_MAX_POWER * CONVERSION_RATE**2
+#Pare che una buona approssimazione della dipendenza dei parametri sia TARGET_POWER < SOURCE_MAX_POWER/2 * CONVERSION_RATE**2
 
 def validate_percentage(value) -> None:
     if value < 0 or value > 1:
@@ -20,7 +20,7 @@ def reward_bound_linear(error, min_reward = -30):
     r = 20 * (1 - error) - 10
     return np.clip(r, min_reward, None)
 
-def reward_quadratic(error, scale = 8, min_reward = -20):
+def reward_quadratic(error, scale = 3, min_reward = -30):
     r = -scale * (error ** 2)
     return np.clip(r, min_reward, None)
 
@@ -44,8 +44,8 @@ class Source:
     
     # Setta la potenza della sorgente in base al tempo
     def set_source_power(self, time: int) -> float:
-        self.current_power = available_energy_complex(time, self.maximum/2)
-        return self.current_power        
+        self.current_power =  available_energy_data(time)  
+        return self.current_power
 
 class Tank:
 
@@ -142,7 +142,6 @@ class NetworkEnv(gym.Env):
         self.output = PowerOutput()
 
         self.output_data = []
-        self.volume_data = []
         self.reward_data = []
         self.action_data = []
         self.input_data = []
@@ -199,14 +198,14 @@ class NetworkEnv(gym.Env):
         error = relative_error(TARGET_POWER, self.output.get_current_output())
         current_output = self.output.get_current_output()
         #bonus serve per disincentivare l'output troppo basso 
-        bonus = -(TARGET_POWER - current_output)/5 if current_output < TARGET_POWER else 5
+        bonus = -(TARGET_POWER - current_output)/40 if current_output < TARGET_POWER else 20
         prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
         distance = reward_quadratic(error)
-        #print(distance, bonus, prevstate)
-        reward = prevstate + distance + bonus
+        reward = float(distance + bonus)
+        
         self.collect(reward, action)
+        truncated = self.time >= 50480
         self.time += 1
-        truncated = self.time > 2000
         return next_state, reward, False, truncated, {}
 
     def render(self):

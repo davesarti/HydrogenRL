@@ -1,6 +1,34 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def init_data():
+    global power, power_sv
+
+    fd = open("csv/power.csv", "r")
+    power = fd.readlines()
+    fd.close()
+    power = [float(x) for x in power[1:]]
+
+    try:
+        fd = open("csv/power_sv.csv", "r")
+
+    except FileNotFoundError:
+        window = 50
+        power_sv = np.convolve(power, np.ones(window)/window, mode='valid')
+
+        fd=open("csv/power_sv.csv", "w")
+        fd.write("LV ActivePower (kW) Smoothed Values\n")
+        for p in power_sv:
+            fd.write(str(p)+"\n")
+        print("File power_sv.csv creato")
+        fd.close()
+
+        fd = open("power_sv.csv", "r")
+    
+    power_sv = fd.readlines()
+    fd.close()
+    power_sv = [float(x) for x in power_sv[1:]]
+
 # Funzione per generare la disponibilità di energia
 def available_energy_complex(t, ampiezza): #settando l'ampiezza si setta anche il massimo che è il doppio dell'ampiezza
     # Parametri della funzione
@@ -29,19 +57,34 @@ def available_energy_complex(t, ampiezza): #settando l'ampiezza si setta anche i
 def available_energy_simple(time, maximum):
     return ((np.sin(time)+1)/2)*maximum
 
+def available_energy_data(time): #sostituire power_sv con power se si vogliono utilizzare dati non smoothed
+    try:
+        return power_sv[time]
+    except NameError:
+        init_data()
+        return power_sv[time]
+    
+def power_max():
+    try:
+        return max(power_sv)
+    except NameError:
+        init_data()
+        return max(power_sv)
+
 def main():
-    # Tempo (ad esempio, 2 settimane con campionamento ogni ora)
-    t = np.linspace(0, 336, 1000)  # 336 ore = 2 settimane
 
-    # Generazione della disponibilità di energia
-    disponibilita = available_energy_complex(t, 250)
+    init_data()
 
-    # Plot della funzione
+    plot_power_sv = power_sv[1:10000]
+    t = np.arange(0, len(plot_power_sv))
+    plot_power = power[:len(plot_power_sv)]
+
     plt.figure(figsize=(12, 6))
-    plt.plot(t, disponibilita, label='Disponibilità di Energia', color='blue')
+    plt.plot(t, plot_power, label='Disponibilità di energia', color='blue')
+    plt.plot(t, plot_power_sv, label='Tendenza disponibilità di energia', color='red')
     plt.xlabel('Tempo (ore)')
-    plt.ylabel('Disponibilità di Energia')
-    plt.title('Disponibilità di Energia Elettrica con Creste di Altezza Variabile')
+    plt.ylabel('Disponibilità di energia')
+    plt.title('Disponibilità di energia elettrica con creste variabili')
     plt.grid(True)
     plt.legend()
     plt.show()
