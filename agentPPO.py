@@ -30,7 +30,7 @@ val_env = Monitor(NetworkEnv())
 eval_callback = EvalCallback(
     val_env,
     best_model_save_path='./PPO/',
-    eval_freq=50481, #hardcoded, da sistemare
+    eval_freq= 50000,# 50481 hardcoded, da sistemare
     deterministic=True,
     render=False
 )

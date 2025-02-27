@@ -2,12 +2,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def init_data():
-    global power, power_sv
+    global power, power_sv, wind
 
     fd = open("csv/power.csv", "r")
     power = fd.readlines()
     fd.close()
     power = [float(x) for x in power[1:]]
+
+    fd = open("csv/wind.csv", "r")
+    wind = fd.readlines()
+    fd.close()
+    wind = [float(x) for x in wind[1:]]
 
     try:
         fd = open("csv/power_sv.csv", "r")
@@ -40,7 +45,7 @@ def available_energy_complex(t, ampiezza): #settando l'ampiezza si setta anche i
     omega2 = 2 * np.pi / T2  # Frequenza angolare della modulazione
     phi2 = 0  # Fase iniziale della modulazione
 
-    noise_std = 20 # Deviazione standard del rumore
+    noise_std = 10 # Deviazione standard del rumore
     # Modulazione dell'ampiezza nel tempo
     ampiezza_modulata = 1 + ampiezza * np.sin(omega2 * t + phi2)
     
@@ -63,6 +68,13 @@ def available_energy_data(time): #sostituire power_sv con power se si vogliono u
     except NameError:
         init_data()
         return power_sv[time]
+    
+def wind_data(time):
+    try:
+        return wind[time]
+    except NameError:
+        init_data()
+        return wind[time]
     
 def power_max():
     try:
