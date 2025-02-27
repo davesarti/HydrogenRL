@@ -53,8 +53,8 @@ def available_energy_complex(t, ampiezza): #settando l'ampiezza si setta anche i
     componente_periodica = ampiezza_modulata * np.sin(omega1 * t + phi1) + ampiezza
     
     # Aggiunta del rumore gaussiano
-    rumore = np.random.normal(0, noise_std, [1,]).item()
-    # Disponibilità di energia totale
+    rumore = np.random.normal(0, noise_std, 1).item()
+    
     disponibilita = componente_periodica + rumore
     
     return disponibilita

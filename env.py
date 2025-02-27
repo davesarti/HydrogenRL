@@ -28,6 +28,8 @@ def prevstate_reward(prevalue, value):
         return 0
     error = relative_error(prevalue, value)
     return 6*np.tanh(-error)
+    error = relative_error(prevalue, value)
+    return 6*np.tanh(-error)
 
 def relative_error(target, value):
     return abs(target - value) / target
@@ -126,7 +128,7 @@ class PowerOutput:
     
     def get_previous_output(self) -> float:
         return self.previous_output
-
+    
 class NetworkEnv(gym.Env):
     
     def __init__(self):
