@@ -1,6 +1,4 @@
 from env import NetworkEnv
-import numpy as np
-import gymnasium as gym
 
 for episode in range(10):
     env = NetworkEnv()

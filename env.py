@@ -13,22 +13,15 @@ def validate_percentage(value) -> None:
     if value < 0 or value > 1:
         print('Le percentuali sono tra 0 e 1')
 
-def reward_bound_exp(error, k = 3):
-    return float(50 * np.exp(-k * error) - 25)
-
-def reward_bound_linear(error, min_reward = -30):
-    r = 20 * (1 - error) - 10
-    return np.clip(r, min_reward, None)
-
-def reward_quadratic(error, scale = 5, min_reward = -20):
+def reward_quadratic(error, scale = 5, min_reward = -50):
     r = -scale * (error ** 2)
     return np.clip(r, min_reward, None)
 
 def prevstate_reward(prevalue, value):
     if prevalue == 0:
         return 0
-    error = -0.1*abs(value - prevalue)+10
-    return np.clip(error, 10, -10)
+    error = relative_error(prevalue, value)
+    return 6*np.tanh(-error)
 
 def relative_error(target, value):
     return abs(target - value) / target
@@ -121,7 +114,7 @@ class PowerOutput:
     
     def get_previous_output(self) -> float:
         return self.previous_output
-
+    
 class NetworkEnv(gym.Env):
     
     def __init__(self):
@@ -191,15 +184,15 @@ class NetworkEnv(gym.Env):
         next_state = self._get_state()
         error = relative_error(TARGET_POWER, self.output.get_current_output())
         current_output = self.output.get_current_output()
-        #bonus serve per disincentivare l'output troppo basso 
-        bonus = -(TARGET_POWER - current_output)/5 if current_output < TARGET_POWER else 5
-        prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
         distance = reward_quadratic(error)
-        reward = distance + bonus
-        #print(distance, bonus, prevstate)
+        #bonus serve per disincentivare l'output troppo basso
+        bonus = -(TARGET_POWER - current_output)/5 if current_output < TARGET_POWER else 10
+        #prevstate penalizza le oscillazioni locali
+        prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
+        reward = distance + bonus + prevstate
         self.collect(reward, action)
+        truncated = self.time >= 2000
         self.time += 1
-        truncated = self.time > 2000
         return next_state, reward, False, truncated, {}
 
     def render(self):

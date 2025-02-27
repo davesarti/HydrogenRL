@@ -39,7 +39,7 @@ check_env(env, warn=True)
 
 model = PPO("MlpPolicy", env, gamma = 0.99, device="cpu")
 
-model.learn(total_timesteps=1000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
+model.learn(total_timesteps=2000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
