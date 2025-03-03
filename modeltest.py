@@ -5,14 +5,14 @@ from stable_baselines3.common.env_checker import check_env
 from matplotlib import pyplot as plt
 
 env = NetworkEnv()
-model = PPO.load("./PPO/best_model_ps_n", env)
+model = PPO.load("./PPO/best_model", env)
 check_env(env, warn=True)
 
 obs, _ = env.reset()  # Estrai solo l'osservazione dalla tupla
 truncated = False
 output_val_data = []
 input_val_data = []
-for i in range(1000):
+for i in range(10000):
     input_val_data.append(env.source.get_source_power())
     action, _states = model.predict(obs, deterministic=True)
     next_state, reward, done, truncated, _ = env.step(action)

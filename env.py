@@ -1,13 +1,16 @@
 import numpy as np
 import gymnasium as gym
-from sourcefn import available_energy_complex, available_energy_simple, available_energy_data, power_max, wind_data
+from sourcefn import available_energy_complex, available_energy_simple, wind_data
 from sourcemodel import Net
 import torch
 
+#media dei dati di potenza = 1300
+
 CONVERSION_RATE = 0.8
-TANK_VOLUME = 40000
+TANK_VOLUME = 60000
 SOURCE_MAX_POWER = 4000
-TARGET_POWER = 1200
+TARGET_POWER = 800
+MAX_WIND = 20
 
 model = Net()
 model.load_state_dict(torch.load("sourcefn_model.pth"))
@@ -28,8 +31,6 @@ def prevstate_reward(prevalue, value):
         return 0
     error = relative_error(prevalue, value)
     return 6*np.tanh(-error)
-    error = relative_error(prevalue, value)
-    return 6*np.tanh(-error)
 
 def relative_error(target, value):
     return abs(target - value) / target
@@ -45,14 +46,14 @@ class Source:
     
     # Setta la potenza della sorgente in base al tempo
     def set_source_power(self, time: int) -> float:
-        self.current_power = available_energy_complex(time, self.maximum/2)#  model.forward(torch.tensor([[wind_data(time)]]).float()).item() 
+        self.current_power = model(torch.tensor(wind_data(time)).reshape(-1,1)).item()
         return self.current_power
 
 class Tank:
 
     def __init__(self, volume: float) -> None:
         self.total_volume = volume #assoluto
-        self.volume = 0
+        self.volume = 20000
     
     # Riempie la tanica di una data quantità e ritorna la quantità riempita
     def fill(self, amount: float) -> float:
@@ -146,6 +147,7 @@ class NetworkEnv(gym.Env):
         self.reward_data = []
         self.action_data = []
         self.input_data = []
+        self.volume_data = []
 
         # potenza in input, volume tanica
         obs_low = np.array([0, 0])
@@ -183,7 +185,6 @@ class NetworkEnv(gym.Env):
         self.output_data = []
         self.action_data = []
         self.input_data = []
-        self.volume_data = []
         return self._get_state(), {}   
     
     def step(self, action):
@@ -199,13 +200,13 @@ class NetworkEnv(gym.Env):
         error = relative_error(TARGET_POWER, self.output.get_current_output())
         current_output = self.output.get_current_output()
         #bonus serve per disincentivare l'output troppo basso 
-        bonus = -(TARGET_POWER - current_output)/20 if current_output < TARGET_POWER else 5
+        bonus = -(TARGET_POWER - current_output)/20 if current_output < TARGET_POWER else 10
         prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
         distance = reward_quadratic(error)
-        reward = float(distance + bonus)
+        reward = float(distance + bonus) # prevstate
         
         self.collect(reward, action)
-        truncated = self.time >= 5000 #50480
+        truncated = self.time >= 10000
         self.time += 1
         return next_state, reward, False, truncated, {}
 

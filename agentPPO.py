@@ -30,16 +30,16 @@ val_env = Monitor(NetworkEnv())
 eval_callback = EvalCallback(
     val_env,
     best_model_save_path='./PPO/',
-    eval_freq= 50000,# 50481 hardcoded, da sistemare
+    eval_freq= 100000,
     deterministic=True,
     render=False
 )
 
 check_env(env, warn=True)
 
-model = PPO("MlpPolicy", env, gamma = 0.99, device="cpu")
+model = PPO.load("./PPO/best_model_dataset", env)
 
-model.learn(total_timesteps=2000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
+model.learn(total_timesteps=1000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
