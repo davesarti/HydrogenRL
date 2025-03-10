@@ -7,10 +7,9 @@ import torch
 #media dei dati di potenza = 1300
 
 CONVERSION_RATE = 0.8
-TANK_VOLUME = 60000
+TANK_VOLUME = 1200000
 SOURCE_MAX_POWER = 4000
 TARGET_POWER = 800
-MAX_WIND = 20
 
 model = Net()
 model.load_state_dict(torch.load("sourcefn_model.pth"))
@@ -84,30 +83,24 @@ class Tank:
 
 class Electrolyzer:
 
-    def __init__(self, conversion: float, load : float) -> None:
+    def __init__(self, conversion: float) -> None:
         validate_percentage(conversion)
         self.conversion = conversion #conversione potenza -> idrogeno
-        self.load = load
     
     # Data la corrente in entrata e una tanica, ritorna l'energia equivalente all'idrogeno effettivamente prodotto
     def produce_hydrogen(self, power: float, tank: Tank) -> float:
-        if(power > self.load):
-            power = self.load
         produced = power * self.conversion
         filled_amount = tank.fill(produced)
         return filled_amount/self.conversion
     
 class Combustor:
 
-    def __init__(self, conversion: float, load: float) -> None:
+    def __init__(self, conversion: float) -> None:
         validate_percentage(conversion)
         self.conversion = conversion #conversione idrogeno -> potenza
-        self.load = load
     
     # Data la quantità di idrogeno e una tanica, ritorna la corrente effettivamente prodotta
     def produce_power(self, amount: float, tank: Tank) -> float: #ritorna la potenza prodotta
-        if(amount > self.load):
-            amount = self.load
         available_volume = tank.empty(amount)
         real_power = available_volume * self.conversion
         return real_power
@@ -138,8 +131,8 @@ class NetworkEnv(gym.Env):
         self.time = 0
         self.tank = Tank(TANK_VOLUME)
         #il carico massimo è settato in modo da esse ininfluente
-        self.electrolyzer = Electrolyzer(CONVERSION_RATE, SOURCE_MAX_POWER) 
-        self.combustor = Combustor(CONVERSION_RATE, TANK_VOLUME)
+        self.electrolyzer = Electrolyzer(CONVERSION_RATE) 
+        self.combustor = Combustor(CONVERSION_RATE)
         self.source = Source(SOURCE_MAX_POWER)
         self.output = PowerOutput()
 
