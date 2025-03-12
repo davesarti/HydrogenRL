@@ -20,8 +20,8 @@ def validate_percentage(value) -> None:
     if value < 0 or value > 1:
         print('Le percentuali sono tra 0 e 1')
 
-def reward_quadratic(error, scale = 3):
-    return -scale * (error ** 3)
+def reward_quadratic(error, scale = 5):
+    return -scale * (error ** 2)
 
 def prevstate_reward(prevalue, value):
     if prevalue == 0:
@@ -192,13 +192,11 @@ class NetworkEnv(gym.Env):
         error = relative_error(TARGET_POWER, self.output.get_current_output())
         current_output = self.output.get_current_output()
         #bonus serve per disincentivare l'output troppo basso 
-        bonus = -(TARGET_POWER - current_output)/40 if current_output < TARGET_POWER else 5
+        bonus = -(TARGET_POWER - current_output)/40 if current_output < TARGET_POWER else 10
         prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
         distance = reward_quadratic(error)
         reward = float(distance + bonus)
         reward = np.clip(reward, -50, None)
-       #print(distance, bonus)
-
         self.collect(reward, action)
         truncated = self.time >= 10000
         self.time += 1

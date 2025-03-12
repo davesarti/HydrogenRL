@@ -38,8 +38,8 @@ eval_callback = EvalCallback(
 check_env(env, warn=True)
 
 # Caricamento/allenamento del modello
-#model = PPO("MlpPolicy", env, gamma = 0.99, device = "cpu")
-model = PPO.load("./PPO/best_model_hugeps", env)
+model = PPO("MlpPolicy", env, gamma = 0.99, device = "cpu")
+#model = PPO.load("./PPO/best_model_hugeps", env, device = "cpu")
 model.learn(total_timesteps = 1000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
