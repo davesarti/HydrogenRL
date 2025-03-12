@@ -6,11 +6,10 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 import matplotlib.pyplot as plt
-import torch
 from rich.progress import Progress, BarColumn, TextColumn
 from rich.console import Console
 
-
+# Creazione di una progress bar personalizzata
 class RichProgressBar:
     def __init__(self):
         self.console = Console()
@@ -24,6 +23,7 @@ class RichProgressBar:
         )
         self.task = None
 
+# Creazione environment, monitoraggio e callback per modello migliore
 env = NetworkEnv()
 val_env = Monitor(NetworkEnv())
 
@@ -37,12 +37,14 @@ eval_callback = EvalCallback(
 
 check_env(env, warn=True)
 
+# Caricamento/allenamento del modello
 #model = PPO("MlpPolicy", env, gamma = 0.99, device = "cpu")
 model = PPO.load("./PPO/best_model_hugeps", env)
-model.learn(total_timesteps = 2000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
+model.learn(total_timesteps = 1000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
+# Grafici su reward, azioni, input e output
 window = 50
 smoothed_rewards = np.convolve(rewards, np.ones(window)/window, mode='valid')
 target = np.ones(len(outputs)) * TARGET_POWER

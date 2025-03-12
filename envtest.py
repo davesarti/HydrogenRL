@@ -15,4 +15,3 @@ for episode in range(10):
     print(f"Episode {episode + 1}: Total reward: {total_reward}")
 
 env.close()
-

@@ -1,6 +1,6 @@
-import os
 import torch
 from torch import nn
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -32,6 +32,7 @@ def main():
 
   x_train = data.iloc[1:, 1].values
   y_train = data.iloc[1:, 0].values
+  y_train = np.clip(y_train, 0, None).reshape(-1, 1) # Trasformo in 0 le rilevazioni negative
   x_train = x_train.reshape(-1, 1)
   y_train = y_train.reshape(-1, 1)
 

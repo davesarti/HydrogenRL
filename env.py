@@ -4,16 +4,15 @@ from sourcefn import available_energy_complex, available_energy_simple, wind_dat
 from sourcemodel import Net
 import torch
 
-#media dei dati di potenza = 1300
-
 CONVERSION_RATE = 0.8
-TANK_VOLUME = 1200000
+TANK_VOLUME = 1000000
 SOURCE_MAX_POWER = 4000
-TARGET_POWER = 800
+TARGET_POWER = 1000
 
 model = Net()
 model.load_state_dict(torch.load("sourcefn_model.pth"))
 model.eval()
+
 #Tarare correttamente questi parametri è cruciale perchè influenzano la convergenza dell'algoritmo
 #Pare che una buona approssimazione della dipendenza dei parametri sia TARGET_POWER < SOURCE_MAX_POWER/2 * CONVERSION_RATE**2
 
@@ -21,9 +20,8 @@ def validate_percentage(value) -> None:
     if value < 0 or value > 1:
         print('Le percentuali sono tra 0 e 1')
 
-def reward_quadratic(error, scale = 1.5, min_reward = -50):
-    r = -scale * (error ** 2)
-    return np.clip(r, min_reward, None)
+def reward_quadratic(error, scale = 3):
+    return -scale * (error ** 3)
 
 def prevstate_reward(prevalue, value):
     if prevalue == 0:
@@ -45,7 +43,7 @@ class Source:
     
     # Setta la potenza della sorgente in base al tempo
     def set_source_power(self, time: int) -> float:
-        self.current_power = model(torch.tensor(wind_data(time)).reshape(-1,1)).item()
+        self.current_power = model(torch.tensor(available_energy_complex(time/20, 10), dtype=torch.float32).reshape(-1,1)).item()
         return self.current_power
 
 class Tank:
@@ -142,13 +140,13 @@ class NetworkEnv(gym.Env):
         self.input_data = []
         self.volume_data = []
 
-        # potenza in input, volume tanica
+        # Stati definiti da potenza sorgente e volume tanica
         obs_low = np.array([0, 0])
         obs_high = np.array([1, 1])
 
         self.observation_space = gym.spaces.Box(low=obs_low, high=obs_high, shape = (2,), dtype=np.float32)
 
-        # percentuale corrente da convertire, percentuale idrogeno da convertire
+        # Azioni definite da corrente da convertire e percentuale idrogeno da convertire
         act_low = np.array([-1, -1])
         act_high = np.array([1, 1])
         self.action_space = gym.spaces.Box(low=act_low, high=act_high, shape = (2,), dtype=np.float32)
@@ -181,6 +179,7 @@ class NetworkEnv(gym.Env):
         return self._get_state(), {}   
     
     def step(self, action):
+        # Azioni sono normalizzate tra -1 e 1, vengono trasformate da 0 a 1
         action = (action + 1) / 2
 
         power = self.source.set_source_power(self.time)
@@ -193,11 +192,13 @@ class NetworkEnv(gym.Env):
         error = relative_error(TARGET_POWER, self.output.get_current_output())
         current_output = self.output.get_current_output()
         #bonus serve per disincentivare l'output troppo basso 
-        bonus = -(TARGET_POWER - current_output)/20 if current_output < TARGET_POWER else 10
+        bonus = -(TARGET_POWER - current_output)/40 if current_output < TARGET_POWER else 5
         prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
         distance = reward_quadratic(error)
-        reward = float(distance + bonus) # prevstate
-        
+        reward = float(distance + bonus)
+        reward = np.clip(reward, -50, None)
+       #print(distance, bonus)
+
         self.collect(reward, action)
         truncated = self.time >= 10000
         self.time += 1

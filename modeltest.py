@@ -4,11 +4,13 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
 from matplotlib import pyplot as plt
 
+# Caricamento dell'ambiente e del modello
 env = NetworkEnv()
 model = PPO.load("./PPO/best_model", env)
 check_env(env, warn=True)
 
-obs, _ = env.reset()  # Estrai solo l'osservazione dalla tupla
+# Esecuzione del modello
+obs, _ = env.reset()  
 truncated = False
 output_val_data = []
 input_val_data = []
@@ -19,6 +21,7 @@ for i in range(10000):
     output_val_data.append(env.output.get_current_output())
     obs = next_state
 
+# Grafico dei dati di input, output e target
 target = np.ones(len(output_val_data)) * TARGET_POWER
 input_avg = np.ones(len(input_val_data))*np.mean(input_val_data)
 
