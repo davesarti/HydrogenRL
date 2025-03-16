@@ -5,7 +5,7 @@ from sourcemodel import Net
 import torch
 
 CONVERSION_RATE = 0.8
-TANK_VOLUME = 1000000
+TANK_VOLUME = 1500000
 SOURCE_MAX_POWER = 4000
 TARGET_POWER = 1000
 
@@ -20,14 +20,14 @@ def validate_percentage(value) -> None:
     if value < 0 or value > 1:
         print('Le percentuali sono tra 0 e 1')
 
-def reward_quadratic(error, scale = 5):
-    return -scale * (error ** 2)
+def reward_quadratic(error, scale = 8):
+    return -scale * (error ** 1.5)
 
 def prevstate_reward(prevalue, value):
     if prevalue == 0:
         return 0
     error = relative_error(prevalue, value)
-    return 6*np.tanh(-error)
+    return 15*np.tanh(-error)
 
 def relative_error(target, value):
     return abs(target - value) / target
@@ -189,13 +189,13 @@ class NetworkEnv(gym.Env):
         self.output.set_output(power, self.time)
         
         next_state = self._get_state()
-        error = relative_error(TARGET_POWER, self.output.get_current_output())
         current_output = self.output.get_current_output()
-        #bonus serve per disincentivare l'output troppo basso 
-        bonus = -(TARGET_POWER - current_output)/40 if current_output < TARGET_POWER else 10
+        malus = -(TARGET_POWER - current_output)/30 if current_output < TARGET_POWER else 20
+        error = relative_error(TARGET_POWER, current_output)
         prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
         distance = reward_quadratic(error)
-        reward = float(distance + bonus)
+        disincentive = -h2_to_power/100 if current_output > TARGET_POWER else 0
+        reward = float(distance + malus + prevstate + disincentive)
         reward = np.clip(reward, -50, None)
         self.collect(reward, action)
         truncated = self.time >= 10000
