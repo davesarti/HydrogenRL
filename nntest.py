@@ -57,3 +57,5 @@ plt.legend()
 plt.title('Power source prediction')
 
 plt.show()
+
+print(np.mean(sim_nn.detach().numpy()))

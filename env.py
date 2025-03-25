@@ -5,9 +5,9 @@ from sourcemodel import Net
 import torch
 
 CONVERSION_RATE = 0.8
-TANK_VOLUME = 1500000
+TANK_VOLUME = 750000
 SOURCE_MAX_POWER = 4000
-TARGET_POWER = 1000
+TARGET_POWER = 1300
 
 model = Net()
 model.load_state_dict(torch.load("sourcefn_model.pth"))
@@ -20,14 +20,14 @@ def validate_percentage(value) -> None:
     if value < 0 or value > 1:
         print('Le percentuali sono tra 0 e 1')
 
-def reward_quadratic(error, scale = 8):
+def reward_quadratic(error, scale = 10):
     return -scale * (error ** 1.5)
 
 def prevstate_reward(prevalue, value):
     if prevalue == 0:
         return 0
     error = relative_error(prevalue, value)
-    return 15*np.tanh(-error)
+    return 3*np.tanh(-error/3)
 
 def relative_error(target, value):
     return abs(target - value) / target
@@ -43,14 +43,14 @@ class Source:
     
     # Setta la potenza della sorgente in base al tempo
     def set_source_power(self, time: int) -> float:
-        self.current_power = model(torch.tensor(available_energy_complex(time/20, 10), dtype=torch.float32).reshape(-1,1)).item()
+        self.current_power = model(torch.tensor(available_energy_complex(time/20, 10), dtype=torch.float32).reshape(-1,1)).item() # /20
         return self.current_power
 
 class Tank:
 
     def __init__(self, volume: float) -> None:
         self.total_volume = volume #assoluto
-        self.volume = 20000
+        self.volume = 0
     
     # Riempie la tanica di una data quantità e ritorna la quantità riempita
     def fill(self, amount: float) -> float:
@@ -182,21 +182,21 @@ class NetworkEnv(gym.Env):
         # Azioni sono normalizzate tra -1 e 1, vengono trasformate da 0 a 1
         action = (action + 1) / 2
 
-        power = self.source.set_source_power(self.time)
+        source_power = self.source.set_source_power(self.time)
         h2_to_power = self.combustor.produce_power(action[1]*self.tank.get_volume(), self.tank)
-        power_to_h2 = self.electrolyzer.produce_hydrogen(action[0]*power, self.tank)
-        power = power + h2_to_power - power_to_h2
+        power_to_h2 = self.electrolyzer.produce_hydrogen(action[0]*source_power, self.tank)
+        power = source_power + h2_to_power - power_to_h2
         self.output.set_output(power, self.time)
         
         next_state = self._get_state()
         current_output = self.output.get_current_output()
-        malus = -(TARGET_POWER - current_output)/30 if current_output < TARGET_POWER else 20
         error = relative_error(TARGET_POWER, current_output)
+        bonus = -abs(TARGET_POWER - current_output)/100 if TARGET_POWER > current_output else 5
+        storage_bonus = power_to_h2 * 0.1 if source_power > TARGET_POWER * 1.1 else 0
         prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
         distance = reward_quadratic(error)
-        disincentive = -h2_to_power/100 if current_output > TARGET_POWER else 0
-        reward = float(distance + malus + prevstate + disincentive)
-        reward = np.clip(reward, -50, None)
+        reward = float(distance + bonus+ storage_bonus)
+        reward = np.clip(reward, -20, None)
         self.collect(reward, action)
         truncated = self.time >= 10000
         self.time += 1

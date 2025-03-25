@@ -1,12 +1,13 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
-TARGET_POWER = 1000
+TARGET_POWER = 1300
+power = np.linspace(0, 4000, 4000)
+prevstate = np.linspace(0, 10, 4000)
 
-def prevstate_reward(prevalue, value):
-    if prevalue == 0:
-        return 0
-    error = relative_error(prevalue, value)
-    return 15*np.tanh(-error)
+def prevstate_reward(error):
+    return 10*np.tanh(-error/3)
 
 def relative_error(target, value):
     return abs(target - value) / target
@@ -14,29 +15,43 @@ def relative_error(target, value):
 def reward_quadratic(error, scale = 8):
     return -scale * (error ** 1.5)
 
-x = np.linspace(0, 4000, 4000)
-rewards = []
+rewards = np.zeros((len(power), len(prevstate)))
 
-for value in x:
-    #bonus = -(TARGET_POWER - value)/40 if value < TARGET_POWER else 15
-    error = relative_error(TARGET_POWER, value)
-    if TARGET_POWER > value:
-        bonus = -abs(TARGET_POWER - value)/30
-    else:
-        bonus = 15
-    distance = reward_quadratic(error)
-    reward = bonus + distance
-    rewards.append(reward)
-
-import matplotlib.pyplot as plt
+for i in range(len(prevstate)):
+    for j in range(len(power)):
+        value = power[i]
+        prev_error = prevstate[j]
+        pow_error = relative_error(TARGET_POWER, value)
+        if TARGET_POWER > value:
+            bonus = -abs(TARGET_POWER - value)/90
+        else:
+            bonus = 5
+        distance = reward_quadratic(pow_error)
+        prev_reward = prevstate_reward(prev_error)
+        reward = bonus + distance + prev_reward
+        reward = np.clip(reward, -20, None)
+        rewards[i][j] = reward
 
 plt.figure(figsize=(12, 6))
 
-plt.plot(x, rewards, label='Reward per step', alpha=0.3)
-plt.xlabel('Potenza')
-plt.ylabel('Reward')
-plt.title('Reward in funzione della potenza')
+colors = [(0.8, 0, 0), (1, 1, 1), (0, 0.8, 0)] 
+cmap = LinearSegmentedColormap.from_list("reward_cmap", colors, N=100)
+
+im = plt.imshow(rewards, cmap=cmap, aspect='auto', 
+                extent=[prevstate.min(), prevstate.max(), power.min(), power.max()],
+                origin='lower', interpolation='bilinear')
+
+cbar = plt.colorbar(im)
+cbar.set_label('Reward')
+
+plt.ylabel('Potenza (kW)')
+plt.xlabel('Errore con output precedente')
+plt.title('Heatmap della reward')
+
+plt.axhline(y=TARGET_POWER, color='black', linestyle='--', linewidth=1, alpha=0.7, 
+            label=f'Target Power ({TARGET_POWER} kW)')
+
 plt.legend()
-
+plt.tight_layout()
+plt.savefig("sourcefn_plots/reward_heatmap.png", dpi=300, bbox_inches='tight')
 plt.show()
-

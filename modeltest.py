@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 # Caricamento dell'ambiente e del modello
 env = NetworkEnv()
-model = PPO.load("./PPO/best_model_posrew", env)
+model = PPO.load("./PPO/best_model", env)
 check_env(env, warn=True)
 
 # Esecuzione del modello
@@ -34,6 +34,8 @@ plt.xlabel("Numero di step")
 plt.ylabel("Potenza")
 plt.title("Outputs")
 plt.legend()
+
+plt.savefig("plots/modeltest.png")
 plt.show()
 
 env.close()
