@@ -1,19 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+from env import relative_error, reward_quadratic
+
+def prevstate_reward(prev_error):
+    return -100*prev_error
 
 TARGET_POWER = 1300
 power = np.linspace(0, 4000, 4000)
-prevstate = np.linspace(0, 10, 4000)
-
-def prevstate_reward(error):
-    return 10*np.tanh(-error/3)
-
-def relative_error(target, value):
-    return abs(target - value) / target
-
-def reward_quadratic(error, scale = 8):
-    return -scale * (error ** 1.5)
+prevstate = np.linspace(0, 1, 4000)
 
 rewards = np.zeros((len(power), len(prevstate)))
 

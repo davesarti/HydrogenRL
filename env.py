@@ -1,6 +1,5 @@
 import numpy as np
 import gymnasium as gym
-from sourcefn import function_complex, function_simple, wind_data
 from sourcemodel import Net
 import torch
 
@@ -25,23 +24,24 @@ def prevstate_reward(prevalue, value):
     if prevalue == 0:
         return 0
     error = relative_error(prevalue, value)
-    return -100*error
+    return -50*error
 
 def relative_error(target, value):
     return abs(target - value) / target
 
 class Source:
 
-    def __init__(self, maximum: float, time: int = 0) -> None:
+    def __init__(self, source_function, maximum: float, time: int = 0) -> None:
         self.maximum = maximum
+        self.source_function = source_function
         self.set_source_power(time)
-
+        
     def get_source_power(self) -> float:
         return self.current_power
     
     # Setta la potenza della sorgente in base al tempo
     def set_source_power(self, time: int) -> float:
-        self.current_power = model(torch.tensor(function_complex(time/20, 10), dtype=torch.float32).reshape(-1,1)).item() # /20
+        self.current_power = model(torch.tensor(self.source_function(time), dtype=torch.float32).reshape(-1,1)).item() 
         return self.current_power
 
 class Tank:
@@ -109,9 +109,11 @@ class PowerOutput:
 
     def set_output(self, value: float, time: int = 0) -> None:
         if(time == 0):
+            self.current_output = value
+            self.previous_output = value
+        else:
             self.previous_output = self.current_output
-        self.previous_output = self.current_output
-        self.current_output = value
+            self.current_output = value
 
     def get_current_output(self) -> float:
         return self.current_output
@@ -121,7 +123,7 @@ class PowerOutput:
     
 class NetworkEnv(gym.Env):
     
-    def __init__(self):
+    def __init__(self, source_function, naive = False):
         super(NetworkEnv, self).__init__()
 
         self.time = 0
@@ -129,8 +131,10 @@ class NetworkEnv(gym.Env):
         #il carico massimo è settato in modo da esse ininfluente
         self.electrolyzer = Electrolyzer(CONVERSION_RATE) 
         self.combustor = Combustor(CONVERSION_RATE)
-        self.source = Source(SOURCE_MAX_POWER)
+        self.source = Source(source_function, SOURCE_MAX_POWER)
         self.output = PowerOutput()
+
+        self.naive = naive # Se impostato a True, il modello non considera le azioni dell'agente ma un'euristica
 
         self.output_data = []
         self.reward_data = []
@@ -180,9 +184,20 @@ class NetworkEnv(gym.Env):
         # Azioni sono normalizzate tra -1 e 1, vengono trasformate da 0 a 1
         action = (action + 1) / 2
 
-        source_power = self.source.set_source_power(self.time)
-        h2_to_power = self.combustor.produce_power(action[1]*self.tank.get_volume(), self.tank)
-        power_to_h2 = self.electrolyzer.produce_hydrogen(action[0]*source_power, self.tank)
+        if(self.naive):
+            source_power = self.source.set_source_power(self.time)
+            if(source_power > TARGET_POWER):
+                h2_to_power = 0
+                power_to_h2 = self.electrolyzer.produce_hydrogen(source_power - TARGET_POWER, self.tank)
+            elif(source_power < TARGET_POWER):
+                power_to_h2 = 0
+                h2_to_power = self.combustor.produce_power((TARGET_POWER - source_power)/0.7, self.tank)
+        
+        else:
+            source_power = self.source.set_source_power(self.time)
+            h2_to_power = self.combustor.produce_power(action[1]*self.tank.get_volume(), self.tank)
+            power_to_h2 = self.electrolyzer.produce_hydrogen(action[0]*source_power, self.tank)
+
         power = source_power + h2_to_power - power_to_h2
         self.output.set_output(power, self.time)
         
@@ -192,9 +207,9 @@ class NetworkEnv(gym.Env):
         error = relative_error(TARGET_POWER, current_output)        
         distance = reward_quadratic(error)
         bonus = -abs(TARGET_POWER - current_output)/50 if TARGET_POWER > current_output else 10
-        storage_bonus = power_to_h2 * 0.06 - h2_to_power * 0.04 if source_power > TARGET_POWER * 1.1 else 0
+        storage_bonus = power_to_h2 * 0.02 - h2_to_power * 0.03 if source_power > TARGET_POWER * 1.1 else 0
         prevstate = prevstate_reward(self.output.get_previous_output(), current_output)
-        
+
         reward = float(distance + prevstate + bonus + storage_bonus)
         reward = np.clip(reward, -20, None)
 

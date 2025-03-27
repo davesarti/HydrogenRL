@@ -19,7 +19,7 @@ wind_sv= [float(x.strip()) for x in wind_sv[1:]]
 size = 10000
 
 x = [i for i in range(size)]
-fun = [function_complex(i/20, 10) for i in range(size)]
+fun = [function_complex(i) for i in range(size)]
 
 # Grafico dei dati di velocità del vento originali e con media mobile
 plt.figure(figsize=(12, 6))
@@ -48,7 +48,7 @@ model.eval()
 power_fn = []
 power_sv = []
 for i in range(size):
-    power_fn.append(model(torch.tensor(np.float32(function_complex(i/20, 10))).reshape(-1,1)).item())
+    power_fn.append(model(torch.tensor(np.float32(function_complex(i))).reshape(-1,1)).item())
     power_sv.append(model(torch.tensor(wind_sv[i]).reshape(-1,1)).item())
 
 # Grafici della potenza generata in base alla velocità del vento

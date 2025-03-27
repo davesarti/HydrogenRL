@@ -12,7 +12,9 @@ def init_data():
     wind = [float(x.strip()) for x in wind[1:]]  # rimuove l'header e converte in float
 
 # Funzione per generare la velocità del vento
-def function_complex(t, ampiezza): #settando l'ampiezza si setta anche il massimo che è il doppio dell'ampiezza
+def function_complex(t, ampiezza=10): #settando l'ampiezza si setta anche il massimo che è il doppio dell'ampiezza
+
+    t = t/20 # Dilatazione della funzione
 
     T1 = 24  # Periodo della sinusoide principale
     omega1 = 2 * np.pi / T1  # Frequenza angolare della sinusoide principale

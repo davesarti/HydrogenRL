@@ -1,4 +1,5 @@
 from env import NetworkEnv, TARGET_POWER
+from sourcefn import function_complex
 import numpy as np
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -24,7 +25,7 @@ class RichProgressBar:
         self.task = None
 
 # Creazione environment, monitoraggio e callback per modello migliore
-env = NetworkEnv()
+env = NetworkEnv(function_complex)
 val_env = Monitor(NetworkEnv())
 
 eval_callback = EvalCallback(
