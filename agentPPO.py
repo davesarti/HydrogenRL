@@ -37,57 +37,38 @@ eval_callback = EvalCallback(
 
 check_env(env, warn=True)
 
-# Caricamento/allenamento del modello
-model = PPO("MlpPolicy", env, n_epochs = 15, n_steps = 1024, device = "cpu")
+# Creazione del modello
+model = PPO("MlpPolicy", env, n_epochs = 15, n_steps = 1024, batch_size = 128, gamma = 0.995, ent_coef = 0.01, learning_rate = 1e-4, device = "cpu")
+
+# Caricamento del modello migliore
 old_model = PPO.load("./PPO/best_model_best", env, device = "cpu")
 model.policy.load_state_dict(old_model.policy.state_dict())
-model.learn(total_timesteps = 1500000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
+
+model.learn(total_timesteps = 1000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)
 
 rewards, outputs, volumes, actions, inputs = env.get_data()
 
-# Grafici su reward, azioni, input e output
+# Grafici su reward e volume
 window = 50
 smoothed_rewards = np.convolve(rewards, np.ones(window)/window, mode='valid')
 target = np.ones(len(outputs)) * TARGET_POWER
 
 plt.figure(figsize=(12, 6))
 plt.plot(rewards, label='Reward per step', alpha=0.3)
-plt.plot(smoothed_rewards, label='Trend reward (media mobile)', color='red')
-plt.xlabel('Numero di step')
+plt.plot(smoothed_rewards, label='Trend reward (sliding window)', color='red')
+plt.xlabel('Steps')
 plt.ylabel('Reward')
-plt.title('Tendenza generale della Reward')
+plt.title('Reward trend')
 plt.legend()
-plt.savefig("plots/reward.png", dpi=300, bbox_inches='tight')
+plt.savefig("plots/reward_training.png", dpi=300, bbox_inches='tight')
 
 plt.figure(figsize=(12, 6))
 plt.subplot(3, 1, 1)
 plt.plot(volumes)
-plt.xlabel('Numero di step')
-plt.ylabel('Volume')
-plt.title("Volumes")
-plt.savefig("plots/volume.png", dpi=300, bbox_inches='tight')
-
-plt.figure(figsize=(14, 10))
-
-plt.subplot(3, 1, 1)
-plt.plot(actions)
-plt.xlabel('Numero di step')
-plt.ylabel('Azione')
-plt.title("Actions")
-plt.legend(["Pow to H2", "H2 to Pow"])
-plt.savefig("plots/actions.png", dpi=300, bbox_inches='tight')
-
-plt.figure(figsize=(14, 10))
-
-plt.subplot(3, 1, 1)
-plt.plot(inputs, label="Inputs")
-plt.plot(outputs, label="Outputs")
-plt.plot(target, label="Target")
-plt.xlabel('Numero di step')
-plt.ylabel('Potenza')
-plt.title("Inputs and Outputs")
-plt.legend()
-plt.savefig("plots/inputs_outputs.png", dpi=300, bbox_inches='tight')
+plt.xlabel('Steps')
+plt.ylabel('Energy storage volume')
+plt.title("Volume trend")
+plt.savefig("plots/volume_training.png", dpi=300, bbox_inches='tight')
 
 plt.show()
 env.close()
