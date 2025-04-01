@@ -26,7 +26,7 @@ class RichProgressBar:
 
 # Creazione environment, monitoraggio e callback per modello migliore
 env = NetworkEnv(function_complex)
-val_env = Monitor(NetworkEnv())
+val_env = Monitor(NetworkEnv(function_complex))
 
 eval_callback = EvalCallback(
     val_env,
@@ -42,7 +42,7 @@ check_env(env, warn=True)
 model = PPO("MlpPolicy", env, n_epochs = 15, n_steps = 1024, batch_size = 128, gamma = 0.995, ent_coef = 0.01, learning_rate = 1e-4, device = "cpu")
 
 # Caricamento del modello migliore
-old_model = PPO.load("./PPO/best_model_best", env, device = "cpu")
+old_model = PPO.load("./PPO/best_model", env, device = "cpu")
 model.policy.load_state_dict(old_model.policy.state_dict())
 
 model.learn(total_timesteps = 1000000, log_interval = 10, progress_bar = RichProgressBar(), callback = eval_callback)

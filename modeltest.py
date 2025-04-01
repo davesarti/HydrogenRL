@@ -8,11 +8,12 @@ from sklearn.metrics import root_mean_squared_error
 
 STEPS = 10000
 
+print("Target power: ", TARGET_POWER)
 def testmodel(function, naive = False):
 
     # Caricamento dell'ambiente e del modello
     env = NetworkEnv(function, naive)
-    model = PPO.load("./PPO/best_model_best", env)
+    model = PPO.load("./PPO/best_model_best6", env)
     check_env(env, warn=True)
 
     # Esecuzione del modello
@@ -27,12 +28,13 @@ def testmodel(function, naive = False):
 
     # Grafico dei dati di input, output e target
     target = np.ones(len(output_data)) * TARGET_POWER
+    mean = np.mean(output_data)
     output_avg = np.ones(len(output_data))*np.mean(output_data)
 
     rmse = root_mean_squared_error(output_data, target)
-    print(f"\nnaive: {naive} \nsource function: {function.__name__} \nRMSE: {rmse}")
+    print(f"\nnaive: {naive} \nsource function: {function.__name__} \nRMSE: {rmse} \nMean: {mean}\n")
 
-    plt.figure(figsize=(20, 20))
+    plt.figure(figsize=(12, 6))
     plt.plot(input_data, label="Input")
     plt.plot(output_data, label="Output")
     plt.plot(target, label="Target")
