@@ -1,7 +1,8 @@
 import numpy as np
 import gymnasium as gym
-from sourcemodel import Net
+from .sourcemodel import Net
 import torch
+from .paths import SOURCE_MODEL_PATH
 
 CONVERSION_RATE = 0.7
 TANK_VOLUME = 750000
@@ -9,13 +10,13 @@ SOURCE_MAX_POWER = 4000
 TARGET_POWER = 1300
 
 model = Net()
-model.load_state_dict(torch.load("sourcefn_model.pth"))
+model.load_state_dict(torch.load(SOURCE_MODEL_PATH, map_location="cpu"))
 model.eval()
 
 
 def validate_percentage(value) -> None:
     if value < 0 or value > 1:
-        print('Le percentuali sono tra 0 e 1')
+        print('Percentages must be between 0 and 1')
 
 def reward_quadratic(error, scale = 25):
     return -scale * (error ** 1.5) + 5
@@ -39,7 +40,7 @@ class Source:
     def get_source_power(self) -> float:
         return self.current_power
     
-    # Setta la potenza della sorgente in base al tempo
+    # Set source power based on time
     def set_source_power(self, time: int) -> float:
         self.current_power = model(torch.tensor(self.source_function(time), dtype=torch.float32).reshape(-1,1)).item() 
         return self.current_power
@@ -47,10 +48,10 @@ class Source:
 class Tank:
 
     def __init__(self, volume: float) -> None:
-        self.total_volume = volume #assoluto
+        self.total_volume = volume  # absolute value
         self.volume = 0
     
-    # Riempie la tanica di una data quantità e ritorna la quantità riempita
+    # Fill the tank with a given amount and return the amount actually filled
     def fill(self, amount: float) -> float:
         if(self.volume + amount > self.get_total_volume()):
             amount = self.get_total_volume() - self.volume
@@ -59,7 +60,7 @@ class Tank:
             self.volume += amount
         return amount
     
-    # Svuola la tanica di una data quantità e ritorna la quantità svuotata
+    # Empty the tank by a given amount and return the amount actually emptied
     def empty(self, amount: float) -> float:
         if(self.volume - amount < 0):
             amount = self.volume
@@ -81,9 +82,9 @@ class Electrolyzer:
 
     def __init__(self, conversion: float) -> None:
         validate_percentage(conversion)
-        self.conversion = conversion #conversione potenza -> idrogeno
+        self.conversion = conversion  # power -> hydrogen conversion
     
-    # Data la corrente in entrata e una tanica, ritorna l'energia equivalente all'idrogeno effettivamente prodotto
+    # Given the input power and a tank, return the energy equivalent to the hydrogen actually produced
     def produce_hydrogen(self, power: float, tank: Tank) -> float:
         produced = power * self.conversion
         filled_amount = tank.fill(produced)
@@ -93,10 +94,10 @@ class Combustor:
 
     def __init__(self, conversion: float) -> None:
         validate_percentage(conversion)
-        self.conversion = conversion #conversione idrogeno -> potenza
+        self.conversion = conversion  # hydrogen -> power conversion
     
-    # Data la quantità di idrogeno e una tanica, ritorna la corrente effettivamente prodotta
-    def produce_power(self, amount: float, tank: Tank) -> float: #ritorna la potenza prodotta
+    # Given the amount of hydrogen and a tank, return the power actually produced
+    def produce_power(self, amount: float, tank: Tank) -> float:  # returns the power produced
         available_volume = tank.empty(amount)
         real_power = available_volume * self.conversion
         return real_power
@@ -128,13 +129,13 @@ class NetworkEnv(gym.Env):
 
         self.time = 0
         self.tank = Tank(TANK_VOLUME)
-        #il carico massimo è settato in modo da esse ininfluente
+        # maximum load is set to be ineffective
         self.electrolyzer = Electrolyzer(CONVERSION_RATE) 
         self.combustor = Combustor(CONVERSION_RATE)
         self.source = Source(source_function, SOURCE_MAX_POWER)
         self.output = PowerOutput()
 
-        self.naive = naive # Se impostato a True, il modello non considera le azioni dell'agente ma un'euristica
+        self.naive = naive  # If True, the model does not consider agent actions but a heuristic
 
         self.output_data = []
         self.reward_data = []
@@ -142,13 +143,13 @@ class NetworkEnv(gym.Env):
         self.input_data = []
         self.volume_data = []
 
-        # Stati definiti da potenza sorgente e volume tanica
+        # States defined by source power and tank volume
         obs_low = np.array([0, 0])
         obs_high = np.array([1, 1])
 
         self.observation_space = gym.spaces.Box(low=obs_low, high=obs_high, shape = (2,), dtype=np.float32)
 
-        # Azioni definite da corrente da convertire e percentuale idrogeno da convertire
+        # Actions defined by current to convert and percentage of hydrogen to convert
         act_low = np.array([-1, -1])
         act_high = np.array([1, 1])
         self.action_space = gym.spaces.Box(low=act_low, high=act_high, shape = (2,), dtype=np.float32)
@@ -181,7 +182,7 @@ class NetworkEnv(gym.Env):
         return self._get_state(), {}   
     
     def step(self, action):
-        # Azioni sono normalizzate tra -1 e 1, vengono trasformate da 0 a 1
+        # Actions are normalized between -1 and 1, they are transformed from -1 to 1 into 0 to 1
         action = (action + 1) / 2
 
         if(self.naive):

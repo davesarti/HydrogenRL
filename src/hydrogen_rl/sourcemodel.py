@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from .paths import DATA_DIR, PLOT_DIR, SOURCE_MODEL_PATH
 
 N_EPOCHS = 2000
 
@@ -21,7 +22,7 @@ class Net(torch.nn.Module):
     def forward(self, x):
         x = torch.relu(self.hidden1(x))
         x = torch.relu(self.hidden2(x))
-        x = torch.relu(self.output(x)) # Necessario per clippare eventuali valori negativi
+        x = torch.relu(self.output(x))  # Necessary to clip any negative values
         return x
 
 
@@ -30,7 +31,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Using {} device".format(device))
 
-    data = pd.read_csv("csv/T1.csv")
+    data = pd.read_csv(DATA_DIR / "T1.csv")
     data.head()
 
     cols = ["Date/Time", "Theoretical_Power_Curve (KWh)", "Wind Direction (°)"]
@@ -41,7 +42,7 @@ def main():
 
     x_train = data.iloc[1:, 1].values
     y_train = data.iloc[1:, 0].values
-    x_train = np.clip(x_train, 0, None).reshape(-1,1)  # Trasformo in 0 le rilevazioni negative
+    x_train = np.clip(x_train, 0, None).reshape(-1,1)  # Transform negative readings to 0
     y_train = np.clip(y_train, 0, None).reshape(-1,1)
 
     net = Net()
@@ -75,16 +76,16 @@ def main():
     plt.plot(x_plot, actual_y, "g", label="Actual Function")
     plt.plot(x_plot, predicted_y.detach().numpy(), "b", label="Predicted Function")
     plt.legend()
-    plt.savefig("sourcefn_plots/prediction.png", dpi=300, bbox_inches="tight")
+    plt.savefig(PLOT_DIR / "prediction.png", dpi=300, bbox_inches="tight")
 
     plt.figure(figsize=(12, 6))
     plt.plot(np.linspace(0, N_EPOCHS, N_EPOCHS//50), loss_values)
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("Loss function")
-    plt.savefig("sourcefn_plots/loss.png", dpi=300, bbox_inches="tight")
+    plt.savefig(PLOT_DIR / "loss.png", dpi=300, bbox_inches="tight")
 
-    # overall function
+    # Overall function
     x_min = x_train.min()
     x_max = x_train.max()
     x_plot = torch.linspace(x_min, x_max, 1000).reshape(-1, 1)
@@ -96,10 +97,10 @@ def main():
     plt.legend()
     plt.xlabel('Wind speed')
     plt.ylabel('Power')
-    plt.savefig("sourcefn_plots/overall.png", dpi=300, bbox_inches="tight")
+    plt.savefig(PLOT_DIR / "overall.png", dpi=300, bbox_inches="tight")
 
     plt.show()
-    torch.save(net.state_dict(), "sourcefn_model.pth")
+    torch.save(net.state_dict(), SOURCE_MODEL_PATH)
 
 
 if __name__ == "__main__":

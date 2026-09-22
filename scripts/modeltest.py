@@ -1,5 +1,6 @@
-from env import NetworkEnv, TARGET_POWER
-from sourcefn import function_complex, wind_data
+from hydrogen_rl.env import NetworkEnv, TARGET_POWER
+from hydrogen_rl.paths import MODEL_DIR, PLOT_DIR
+from hydrogen_rl.sourcefn import function_complex, wind_data
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
@@ -11,12 +12,12 @@ STEPS = 10000
 print("Target power: ", TARGET_POWER)
 def testmodel(function, naive = False):
 
-    # Caricamento dell'ambiente e del modello
+    # Load the environment and model
     env = NetworkEnv(function, naive)
-    model = PPO.load("./PPO/best_model_best6", env)
+    model = PPO.load(MODEL_DIR / "best_model", env)
     check_env(env, warn=True)
 
-    # Esecuzione del modello
+    # Run the model
     obs, _ = env.reset()  
 
     for i in range(STEPS):
@@ -26,7 +27,7 @@ def testmodel(function, naive = False):
 
     reward_data, output_data, volume_data, action_data, input_data = env.get_data()
 
-    # Grafico dei dati di input, output e target
+    # Plot input, output, and target data
     target = np.ones(len(output_data)) * TARGET_POWER
     mean = np.mean(output_data)
     output_avg = np.ones(len(output_data))*np.mean(output_data)
@@ -44,9 +45,9 @@ def testmodel(function, naive = False):
     plt.title("Input and Output")
     plt.legend()
     if naive:
-        plt.savefig("plots/input_output_naive_" + function.__name__ + ".png", dpi=300, bbox_inches='tight')
+        plt.savefig(PLOT_DIR / ("input_output_naive_" + function.__name__ + ".png"), dpi=300, bbox_inches='tight')
     else:
-        plt.savefig("plots/input_output_" + function.__name__ + ".png", dpi=300, bbox_inches='tight')
+        plt.savefig(PLOT_DIR / ("input_output_" + function.__name__ + ".png"), dpi=300, bbox_inches='tight')
 
     plt.figure(figsize=(12, 6))
     plt.subplot(3, 1, 1)
@@ -55,9 +56,9 @@ def testmodel(function, naive = False):
     plt.ylabel('Volume')
     plt.title("Energy storage volume")
     if naive:
-        plt.savefig("plots/volume_naive_" + function.__name__ + ".png", dpi=300, bbox_inches='tight')
+        plt.savefig(PLOT_DIR / ("volume_naive_" + function.__name__ + ".png"), dpi=300, bbox_inches='tight')
     else:
-        plt.savefig("plots/volume_output_" + function.__name__ + ".png", dpi=300, bbox_inches='tight')
+        plt.savefig(PLOT_DIR / ("volume_output_" + function.__name__ + ".png"), dpi=300, bbox_inches='tight')
 
     if naive == False:
         plt.figure(figsize=(12, 6))
@@ -67,7 +68,7 @@ def testmodel(function, naive = False):
         plt.ylabel('Action')
         plt.title("Actions")
         plt.legend(["Pow to H2", "H2 to Pow"])
-        plt.savefig("plots/actions_naive_" + function.__name__ + ".png", dpi=300, bbox_inches='tight')
+        plt.savefig(PLOT_DIR / ("actions_" + function.__name__ + ".png"), dpi=300, bbox_inches='tight')
 
     plt.show()
 

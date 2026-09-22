@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-from env import relative_error, reward_quadratic
+from hydrogen_rl.env import relative_error, reward_quadratic
+from hydrogen_rl.paths import PLOT_DIR
 
 def prevstate_reward(prev_error):
     return -100*prev_error
@@ -39,14 +40,14 @@ im = plt.imshow(rewards, cmap=cmap, aspect='auto',
 cbar = plt.colorbar(im)
 cbar.set_label('Reward')
 
-plt.ylabel('Potenza (kW)')
-plt.xlabel('Errore con output precedente')
-plt.title('Heatmap della reward')
+plt.ylabel('Power (kW)')
+plt.xlabel('Error with previous output')
+plt.title('Reward Heatmap')
 
 plt.axhline(y=TARGET_POWER, color='black', linestyle='--', linewidth=1, alpha=0.7, 
             label=f'Target Power ({TARGET_POWER} kW)')
 
 plt.legend()
 plt.tight_layout()
-plt.savefig("sourcefn_plots/reward_heatmap.png", dpi=300, bbox_inches='tight')
+plt.savefig(PLOT_DIR / "reward_heatmap.png", dpi=300, bbox_inches='tight')
 plt.show()
